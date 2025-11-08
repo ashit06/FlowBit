@@ -1,0 +1,129 @@
+[
+  {
+    "invoiceNumber": "INV-2024-001",
+    "vendor": {
+      "name": "Tech Solutions Inc",
+      "email": "billing@techsolutions.com",
+      "phone": "+1-555-0123",
+      "address": "123 Tech Street, San Francisco, CA 94105"
+    },
+    "customer": {
+      "name": "Flowbit Private Limited",
+      "email": "accounts@flowbit.com",
+      "phone": "+1-555-0456"
+    },
+    "issueDate": "2024-01-15",
+    "dueDate": "2024-02-15",
+    "totalAmount": 15000.00,
+    "taxAmount": 1350.00,
+    "subtotalAmount": 13650.00,
+    "currency": "USD",
+    "status": "paid",
+    "category": "Software",
+    "description": "Software licensing and support",
+    "lineItems": [
+      {
+        "description": "Software License - Annual",
+        "quantity": 1,
+        "unitPrice": 12000.00,
+        "totalPrice": 12000.00,
+        "category": "License"
+      },
+      {
+        "description": "Support Services",
+        "quantity": 12,
+        "unitPrice": 137.50,
+        "totalPrice": 1650.00,
+        "category": "Support"
+      }
+    ],
+    "payments": [
+      {
+        "amount": 15000.00,
+        "paymentDate": "2024-02-10",
+        "method": "bank_transfer",
+        "reference": "TXN-2024-001",
+        "status": "completed"
+      }
+    ]
+  },
+  {
+    "invoiceNumber": "INV-2024-002",
+    "vendor": {
+      "name": "Office Supplies Co",
+      "email": "orders@officesupplies.com",
+      "phone": "+1-555-0789"
+    },
+    "issueDate": "2024-01-20",
+    "totalAmount": 850.00,
+    "taxAmount": 68.00,
+    "subtotalAmount": 782.00,
+    "currency": "USD",
+    "status": "pending",
+    "category": "Office Supplies",
+    "description": "Monthly office supplies order",
+    "lineItems": [
+      {
+        "description": "Paper A4 - 10 reams",
+        "quantity": 10,
+        "unitPrice": 25.00,
+        "totalPrice": 250.00,
+        "category": "Paper"
+      },
+      {
+        "description": "Ink Cartridges",
+        "quantity": 4,
+        "unitPrice": 75.00,
+        "totalPrice": 300.00,
+        "category": "Consumables"
+      },
+      {
+        "description": "Office Chairs",
+        "quantity": 2,
+        "unitPrice": 116.00,
+        "totalPrice": 232.00,
+        "category": "Furniture"
+      }
+    ]
+  },
+  {
+    "invoiceNumber": "INV-2024-003",
+    "vendor": {
+      "name": "Cloud Services Ltd",
+      "email": "billing@cloudservices.com",
+      "phone": "+1-555-0321"
+    },
+    "issueDate": "2024-02-01",
+    "dueDate": "2024-03-01",
+    "totalAmount": 2500.00,
+    "taxAmount": 200.00,
+    "subtotalAmount": 2300.00,
+    "currency": "USD",
+    "status": "sent",
+    "category": "Cloud Services",
+    "description": "Monthly cloud infrastructure costs",
+    "lineItems": [
+      {
+        "description": "Compute Instances",
+        "quantity": 720,
+        "unitPrice": 2.50,
+        "totalPrice": 1800.00,
+        "category": "Compute"
+      },
+      {
+        "description": "Storage",
+        "quantity": 500,
+        "unitPrice": 0.50,
+        "totalPrice": 250.00,
+        "category": "Storage"
+      },
+      {
+        "description": "Data Transfer",
+        "quantity": 100,
+        "unitPrice": 2.50,
+        "totalPrice": 250.00,
+        "category": "Network"
+      }
+    ]
+  }
+]

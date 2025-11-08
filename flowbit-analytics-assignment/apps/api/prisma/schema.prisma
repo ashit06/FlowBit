@@ -1,0 +1,119 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Vendor {
+  id          String    @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  taxId       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  invoices    Invoice[]
+  
+  @@map("vendors")
+}
+
+model Customer {
+  id          String    @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  invoices    Invoice[]
+  
+  @@map("customers")
+}
+
+model Invoice {
+  id              String      @id @default(cuid())
+  invoiceNumber   String      @unique
+  vendorId        String
+  customerId      String?
+  issueDate       DateTime
+  dueDate         DateTime?
+  totalAmount     Decimal     @db.Decimal(10, 2)
+  taxAmount       Decimal?    @db.Decimal(10, 2)
+  subtotalAmount  Decimal     @db.Decimal(10, 2)
+  currency        String      @default("USD")
+  status          InvoiceStatus @default(PENDING)
+  category        String?
+  description     String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  vendor          Vendor      @relation(fields: [vendorId], references: [id])
+  customer        Customer?   @relation(fields: [customerId], references: [id])
+  lineItems       LineItem[]
+  payments        Payment[]
+  
+  @@map("invoices")
+}
+
+model LineItem {
+  id          String    @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Decimal   @db.Decimal(10, 2)
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  totalPrice  Decimal   @db.Decimal(10, 2)
+  category    String?
+  createdAt   DateTime  @default(now())
+  
+  invoice     Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@map("line_items")
+}
+
+model Payment {
+  id          String      @id @default(cuid())
+  invoiceId   String
+  amount      Decimal     @db.Decimal(10, 2)
+  paymentDate DateTime
+  method      PaymentMethod @default(BANK_TRANSFER)
+  reference   String?
+  status      PaymentStatus @default(COMPLETED)
+  createdAt   DateTime    @default(now())
+  
+  invoice     Invoice     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@map("payments")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CREDIT_CARD
+  CHECK
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
