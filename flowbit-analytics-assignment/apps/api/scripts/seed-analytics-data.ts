@@ -176,7 +176,8 @@ async function seedAnalyticsData() {
         customerId: record.departmentId,
         issueDate,
         dueDate,
-        amount,
+        totalAmount: amount,
+        subtotalAmount: Math.round(amount / 1.19 * 100) / 100, // Amount without tax
         currency: 'EUR',
         status,
         taxAmount: Math.round(amount * 0.19 * 100) / 100, // 19% VAT
@@ -248,7 +249,7 @@ async function seedAnalyticsData() {
 
     // Calculate final statistics
     const stats = await prisma.invoice.aggregate({
-      _sum: { amount: true, taxAmount: true },
+      _sum: { totalAmount: true, taxAmount: true },
       _count: true
     });
 
@@ -267,7 +268,7 @@ async function seedAnalyticsData() {
     console.log(`   - Invoices: ${invoiceData.length}`);
     console.log(`   - Line Items: ${lineItemData.length}`);
     console.log(`   - Payments: ${paymentData.length}`);
-    console.log(`   - Total Revenue: €${stats._sum.amount?.toFixed(2) || '0.00'}`);
+    console.log(`   - Total Revenue: €${stats._sum.totalAmount?.toFixed(2) || '0.00'}`);
     console.log(`   - Total Tax: €${stats._sum.taxAmount?.toFixed(2) || '0.00'}`);
     console.log(`   - Paid Invoices: ${paidInvoices}/${stats._count}`);
     console.log(`   - Overdue Invoices: ${overdueInvoices}/${stats._count}`);
@@ -281,7 +282,7 @@ async function seedAnalyticsData() {
         invoices: invoiceData.length,
         lineItems: lineItemData.length,
         payments: paymentData.length,
-        totalRevenue: stats._sum.amount || 0,
+        totalRevenue: stats._sum.totalAmount || 0,
         totalTax: stats._sum.taxAmount || 0,
         paidInvoices: paidInvoices,
         overdueInvoices: overdueInvoices,

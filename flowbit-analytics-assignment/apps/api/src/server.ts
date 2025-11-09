@@ -311,7 +311,6 @@ app.post('/api/seed', async (req, res) => {
     const result = await seedAnalyticsData();
     
     res.json({
-      success: true,
       message: 'Database seeded successfully with analytics data',
       ...result
     });
@@ -334,7 +333,7 @@ app.get('/api/seed', async (req, res) => {
       prisma.invoice.count(),
       prisma.lineItem.count(),
       prisma.payment.count(),
-      prisma.invoice.aggregate({ _sum: { amount: true } })
+      prisma.invoice.aggregate({ _sum: { totalAmount: true } })
     ]);
 
     const [vendorCount, customerCount, invoiceCount, lineItemCount, paymentCount, revenueSum] = stats;
@@ -347,7 +346,7 @@ app.get('/api/seed', async (req, res) => {
         invoices: invoiceCount,
         lineItems: lineItemCount,
         payments: paymentCount,
-        totalRevenue: revenueSum._sum.amount || 0
+        totalRevenue: revenueSum._sum.totalAmount || 0
       },
       message: invoiceCount > 0 
         ? 'Database contains seeded data' 
