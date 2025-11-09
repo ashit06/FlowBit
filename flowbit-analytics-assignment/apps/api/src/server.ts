@@ -197,7 +197,7 @@ app.get('/api/invoices', async (req, res) => {
       take: 50 // Limit for performance
     });
 
-    const formattedInvoices = invoices.map(invoice => ({
+    const formattedInvoices = invoices.map((invoice: any) => ({
       id: invoice.id,
       vendor: invoice.vendor?.name || 'Unknown Vendor',
       customer: invoice.customer?.name || 'Unknown Customer',
@@ -259,12 +259,12 @@ app.get('/api/analytics/vendors', async (req, res) => {
       }
     });
 
-    const vendorData = vendorAnalytics.map(vendor => ({
+    const vendorData = vendorAnalytics.map((vendor: any) => ({
       id: vendor.id,
       name: vendor.name,
       totalInvoices: vendor.invoices.length,
-      totalAmount: vendor.invoices.reduce((sum, inv) => sum + Number(inv.totalAmount), 0),
-      paidInvoices: vendor.invoices.filter(inv => inv.status === 'PAID').length
+      totalAmount: vendor.invoices.reduce((sum: number, inv: any) => sum + Number(inv.totalAmount), 0),
+      paidInvoices: vendor.invoices.filter((inv: any) => inv.status === 'PAID').length
     }));
 
     res.json(vendorData);
@@ -286,7 +286,7 @@ app.get('/api/analytics/categories', async (req, res) => {
       }
     });
 
-    const formattedData = categoryData.map(cat => ({
+    const formattedData = categoryData.map((cat: any) => ({
       category: cat.category || 'Uncategorized',
       totalAmount: Number(cat._sum.totalAmount) || 0,
       invoiceCount: cat._count.id
