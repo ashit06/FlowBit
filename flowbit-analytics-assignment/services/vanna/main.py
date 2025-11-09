@@ -412,14 +412,16 @@ class RAGVannaAI:
     def _generate_groq_sql_with_context(self, question: str, similar_questions: list):
         """Generate SQL using Groq with RAG context"""
         schema_info = """
-        Database Schema:
-        - vendors: id, name, email, phone, address, taxId, createdAt, updatedAt
-        - customers: id, name, email, phone, address, createdAt, updatedAt  
-        - invoices: id, invoiceNumber, vendorId, customerId, issueDate, dueDate, totalAmount, taxAmount, subtotalAmount, currency, status, category, description, createdAt, updatedAt
-        - line_items: id, invoiceId, description, quantity, unitPrice, totalPrice, category, createdAt
-        - payments: id, invoiceId, amount, paymentDate, method, reference, status, createdAt
+        Database Schema (PostgreSQL - use double quotes for camelCase columns):
+        - vendors: id, name, email, phone, address, "taxId", "createdAt", "updatedAt"
+        - customers: id, name, email, phone, address, "createdAt", "updatedAt"  
+        - invoices: id, "invoiceNumber", "vendorId", "customerId", "issueDate", "dueDate", "totalAmount", "taxAmount", "subtotalAmount", currency, status, category, description, "createdAt", "updatedAt"
+        - line_items: id, "invoiceId", description, quantity, "unitPrice", "totalPrice", category, "createdAt"
+        - payments: id, "invoiceId", amount, "paymentDate", method, reference, status, "createdAt"
         
         Status values: DRAFT, PENDING, SENT, PAID, OVERDUE, CANCELLED
+        
+        IMPORTANT: Always use double quotes around camelCase column names in PostgreSQL queries.
         """
         
         # Build context from similar questions
@@ -473,14 +475,16 @@ class RAGVannaAI:
     def _generate_groq_sql(self, question: str):
         """Generate SQL using Groq API alone"""
         schema_info = """
-        Database Schema:
-        - vendors: id, name, email, phone, address, taxId, createdAt, updatedAt
-        - customers: id, name, email, phone, address, createdAt, updatedAt  
-        - invoices: id, invoiceNumber, vendorId, customerId, issueDate, dueDate, totalAmount, taxAmount, subtotalAmount, currency, status, category, description, createdAt, updatedAt
-        - line_items: id, invoiceId, description, quantity, unitPrice, totalPrice, category, createdAt
-        - payments: id, invoiceId, amount, paymentDate, method, reference, status, createdAt
+        Database Schema (PostgreSQL - use double quotes for camelCase columns):
+        - vendors: id, name, email, phone, address, "taxId", "createdAt", "updatedAt"
+        - customers: id, name, email, phone, address, "createdAt", "updatedAt"  
+        - invoices: id, "invoiceNumber", "vendorId", "customerId", "issueDate", "dueDate", "totalAmount", "taxAmount", "subtotalAmount", currency, status, category, description, "createdAt", "updatedAt"
+        - line_items: id, "invoiceId", description, quantity, "unitPrice", "totalPrice", category, "createdAt"
+        - payments: id, "invoiceId", amount, "paymentDate", method, reference, status, "createdAt"
         
         Status values: DRAFT, PENDING, SENT, PAID, OVERDUE, CANCELLED
+        
+        IMPORTANT: Always use double quotes around camelCase column names in PostgreSQL queries.
         """
         
         prompt = f"""
