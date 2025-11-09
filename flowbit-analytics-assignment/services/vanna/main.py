@@ -13,7 +13,7 @@ from datetime import datetime
 import logging
 import time
 
-# Vanna AI imports for RAG
+# Vanna AI imports for RAG - Make optional for deployment
 try:
     import chromadb
     from sentence_transformers import SentenceTransformer
@@ -21,8 +21,11 @@ try:
     RAG_AVAILABLE = True
     print("✅ Full RAG dependencies loaded successfully")
 except ImportError as e:
-    print(f"⚠️ RAG dependencies not available: {e}, falling back to hybrid mode")
+    print(f"⚠️ RAG dependencies not available: {e}, falling back to pattern matching mode")
     RAG_AVAILABLE = False
+    chromadb = None
+    SentenceTransformer = None
+    np = None
 
 load_dotenv()
 
@@ -32,28 +35,45 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Vanna AI RAG Service", version="2.0.0")
 
-# CORS configuration
+# CORS configuration for production
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure this for production
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001", 
+        "http://localhost:3002",
+        "https://your-frontend.vercel.app",
+        "https://your-backend.vercel.app",
+        "https://*.onrender.com",
+        "*"  # Remove this in production and specify exact domains
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
-# Configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+psycopg://user:password@localhost:5433/flowbit_analytics")
+# Configuration with production fallbacks
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://flowbit_dsmj_user:OeBqXReq0cEqRJt4qjGisESU20LjrTNC@dpg-d47npjili9vc738s69lg-a.oregon-postgres.render.com/flowbit_dsmj")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+PORT = int(os.getenv("PORT", 8000))
 
 if not GROQ_API_KEY:
-    raise ValueError("GROQ_API_KEY environment variable is required")
+    logger.warning("GROQ_API_KEY not found, some features may be limited")
 
-# Database connection
-try:
-    engine = create_engine(DATABASE_URL)
-    print(f"✅ Connected to database: {DATABASE_URL}")
-except Exception as e:
-    print(f"❌ Database connection error: {e}")
+# Database connection with retry logic
+def create_db_engine():
+    try:
+        engine = create_engine(DATABASE_URL, echo=False)
+        # Test connection
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        logger.info("✅ Database connected successfully")
+        return engine
+    except Exception as e:
+        logger.error(f"❌ Database connection failed: {e}")
+        return None
+
+engine = create_db_engine()
 
 class QueryRequest(BaseModel):
     question: str
@@ -76,8 +96,11 @@ class RAGVannaAI:
         self.database_url = DATABASE_URL
         self.engine = engine
         self.rag_enabled = False
+        self.chroma_client = None
+        self.collection = None
+        self.embedding_model = None
         
-        if RAG_AVAILABLE:
+        if RAG_AVAILABLE and chromadb is not None:
             try:
                 # Initialize ChromaDB client
                 self.chroma_client = chromadb.PersistentClient(path="./chroma_db")
@@ -95,8 +118,12 @@ class RAGVannaAI:
                     logger.info("✅ Created new ChromaDB collection")
                 
                 # Initialize sentence transformer for embeddings
-                self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-                logger.info("✅ Loaded sentence transformer model")
+                if SentenceTransformer is not None:
+                    self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+                    logger.info("✅ Loaded sentence transformer model")
+                else:
+                    self.embedding_model = None
+                    logger.warning("⚠️ SentenceTransformer not available")
                 
                 # Initialize knowledge base if empty
                 self._initialize_knowledge_base()
@@ -226,6 +253,9 @@ class RAGVannaAI:
     
     def _find_similar_questions(self, question: str, top_k: int = 3):
         """Find similar questions from the knowledge base"""
+        if not self.rag_enabled or not self.embedding_model or not self.collection:
+            return []
+            
         try:
             # Create embedding for the input question
             question_embedding = self.embedding_model.encode(question).tolist()
@@ -503,11 +533,18 @@ rag_system = RAGVannaAI()
 
 @app.get("/health")
 async def health_check():
+    """Health check endpoint for production monitoring"""
+    db_status = "connected" if engine else "disconnected"
+    rag_status = "active" if (rag_system.rag_enabled and rag_system.collection and rag_system.embedding_model) else "inactive"
+    
     return {
-        "status": "OK", 
-        "service": "Vanna AI RAG Service",
-        "rag_enabled": rag_system.rag_enabled,
-        "version": "2.0.0"
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "database": db_status,
+        "rag_system": rag_status,
+        "groq_api": "available" if GROQ_API_KEY else "unavailable",
+        "version": "2.0.0",
+        "service": "Vanna AI RAG Service"
     }
 
 @app.post("/query", response_model=QueryResponse)
@@ -517,11 +554,23 @@ async def query_data(request: QueryRequest):
 @app.get("/")
 async def root():
     return {
-        "message": "Vanna AI RAG Service for Flowbit Analytics", 
-        "rag_enabled": rag_system.rag_enabled,
-        "endpoints": ["/query", "/health"]
+        "service": "Vanna AI RAG Service",
+        "version": "2.0.0",
+        "status": "operational",
+        "endpoints": {
+            "health": "/health",
+            "query": "/query (POST)",
+            "docs": "/docs"
+        }
     }
 
+# Run server
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=PORT,
+        reload=False,  # Disable in production
+        log_level="info"
+    )
