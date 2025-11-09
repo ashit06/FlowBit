@@ -7,6 +7,9 @@
     "build": "npx prisma generate && tsc",
     "start": "node dist/server.js",
     "start:prod": "npx prisma generate && npm run build && npm start",
+    "seed": "ts-node scripts/seed-analytics-data.ts",
+    "seed:prod": "node dist/scripts/seed-analytics-data.js",
+    "deploy": "npx prisma migrate deploy && npm run seed:prod",
     "clean": "rm -rf dist",
     "lint": "eslint src --ext .ts",
     "postinstall": "npx prisma generate"

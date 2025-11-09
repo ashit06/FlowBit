@@ -299,6 +299,69 @@ app.get('/api/analytics/categories', async (req, res) => {
   }
 });
 
+// Seeding endpoints for production database
+app.post('/api/seed', async (req, res) => {
+  try {
+    console.log('🌱 Seeding endpoint called');
+    
+    // Import seeding function dynamically
+    const { seedAnalyticsData } = await import('../scripts/seed-analytics-data');
+    
+    // Run seeding
+    const result = await seedAnalyticsData();
+    
+    res.json({
+      success: true,
+      message: 'Database seeded successfully with analytics data',
+      ...result
+    });
+  } catch (error) {
+    console.error('❌ Seeding error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to seed database',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get seeding status endpoint
+app.get('/api/seed', async (req, res) => {
+  try {
+    const stats = await Promise.all([
+      prisma.vendor.count(),
+      prisma.customer.count(), 
+      prisma.invoice.count(),
+      prisma.lineItem.count(),
+      prisma.payment.count(),
+      prisma.invoice.aggregate({ _sum: { amount: true } })
+    ]);
+
+    const [vendorCount, customerCount, invoiceCount, lineItemCount, paymentCount, revenueSum] = stats;
+
+    res.json({
+      seeded: invoiceCount > 0,
+      stats: {
+        vendors: vendorCount,
+        customers: customerCount,
+        invoices: invoiceCount,
+        lineItems: lineItemCount,
+        payments: paymentCount,
+        totalRevenue: revenueSum._sum.amount || 0
+      },
+      message: invoiceCount > 0 
+        ? 'Database contains seeded data' 
+        : 'Database is empty - use POST /api/seed to populate'
+    });
+  } catch (error) {
+    console.error('❌ Seeding status error:', error);
+    res.status(500).json({
+      error: 'Failed to check seeding status',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // Chat with data endpoint
 app.post('/api/chat-with-data', async (req, res) => {
   try {
