@@ -1,11 +1,25 @@
+# Core FastAPI and server dependencies
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-dotenv==1.0.0
+pydantic==2.5.0
+
+# Database dependencies
 psycopg2-binary==2.9.9
 sqlalchemy==2.0.23
+
+# Data processing
 pandas==2.1.3
 requests==2.31.0
-pydantic==2.5.0
+numpy==1.24.4
+
+# RAG Dependencies - Minimal compatible versions
+chromadb==0.5.15
+sentence-transformers==3.0.1
+transformers==4.44.2
+torch>=1.13.0,<3.0.0
+tokenizers>=0.15.0
+scikit-learn==1.4.0
 
 # Production dependencies
 gunicorn==21.2.0

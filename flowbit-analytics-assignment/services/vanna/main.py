@@ -102,35 +102,88 @@ class RAGVannaAI:
         
         if RAG_AVAILABLE and chromadb is not None:
             try:
-                # Initialize ChromaDB client
-                self.chroma_client = chromadb.PersistentClient(path="./chroma_db")
+                logger.info("🔄 Initializing RAG system...")
+                
+                # Initialize ChromaDB client with better error handling
+                import os
+                chroma_path = "./chroma_db"
+                os.makedirs(chroma_path, exist_ok=True)
+                
+                self.chroma_client = chromadb.PersistentClient(path=chroma_path)
                 self.collection_name = "sql_knowledge_base"
+                logger.info("✅ ChromaDB client initialized")
                 
-                # Get or create collection
+                # Get or create collection with better error handling
                 try:
-                    self.collection = self.chroma_client.get_collection(name=self.collection_name)
-                    logger.info("✅ Loaded existing ChromaDB collection")
-                except:
-                    self.collection = self.chroma_client.create_collection(
-                        name=self.collection_name,
-                        metadata={"hnsw:space": "cosine"}
-                    )
-                    logger.info("✅ Created new ChromaDB collection")
+                    # Try to get existing collection first
+                    collections = self.chroma_client.list_collections()
+                    existing_collection = None
+                    for col in collections:
+                        if col.name == self.collection_name:
+                            existing_collection = col
+                            break
+                    
+                    if existing_collection:
+                        self.collection = self.chroma_client.get_collection(name=self.collection_name)
+                        logger.info("✅ Loaded existing ChromaDB collection")
+                    else:
+                        self.collection = self.chroma_client.create_collection(
+                            name=self.collection_name,
+                            metadata={"hnsw:space": "cosine"}
+                        )
+                        logger.info("✅ Created new ChromaDB collection")
+                        
+                except Exception as collection_error:
+                    logger.warning(f"⚠️ Collection error: {collection_error}, creating new collection...")
+                    try:
+                        # Force create new collection
+                        self.collection = self.chroma_client.get_or_create_collection(
+                            name=self.collection_name,
+                            metadata={"hnsw:space": "cosine"}
+                        )
+                        logger.info("✅ Created/retrieved ChromaDB collection")
+                    except Exception as create_error:
+                        logger.error(f"❌ Failed to create collection: {create_error}")
+                        raise create_error
                 
-                # Initialize sentence transformer for embeddings
+                # Initialize sentence transformer for embeddings with error handling
                 if SentenceTransformer is not None:
-                    self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-                    logger.info("✅ Loaded sentence transformer model")
+                    try:
+                        # Try to load the model with better error handling
+                        logger.info("🔄 Loading sentence transformer model...")
+                        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+                        logger.info("✅ Loaded sentence transformer model successfully")
+                        
+                        # Test the model
+                        test_embedding = self.embedding_model.encode("test query")
+                        logger.info(f"✅ Model test successful, embedding size: {len(test_embedding)}")
+                        
+                    except Exception as model_error:
+                        logger.error(f"❌ Failed to load sentence transformer: {model_error}")
+                        self.embedding_model = None
+                        raise model_error
                 else:
                     self.embedding_model = None
-                    logger.warning("⚠️ SentenceTransformer not available")
+                    logger.error("❌ SentenceTransformer class not available")
+                    raise ImportError("SentenceTransformer not imported")
                 
                 # Initialize knowledge base if empty
+                logger.info("🔄 Initializing knowledge base...")
                 self._initialize_knowledge_base()
-                self.rag_enabled = True
+                
+                # Final validation
+                if self.collection and self.embedding_model:
+                    self.rag_enabled = True
+                    logger.info("✅ RAG system fully initialized and operational")
+                else:
+                    logger.error("❌ RAG system validation failed")
+                    self.rag_enabled = False
                 
             except Exception as e:
                 logger.error(f"❌ RAG initialization failed: {e}")
+                logger.error(f"❌ Error type: {type(e).__name__}")
+                import traceback
+                logger.error(f"❌ Full traceback: {traceback.format_exc()}")
                 self.rag_enabled = False
         
         if not self.rag_enabled:
@@ -139,16 +192,35 @@ class RAGVannaAI:
     def _initialize_knowledge_base(self):
         """Initialize the knowledge base with training data if collection is empty"""
         try:
+            if not self.collection:
+                logger.error("❌ Collection not available for knowledge base initialization")
+                return
+                
             collection_count = self.collection.count()
+            logger.info(f"📊 Current collection count: {collection_count}")
+            
             if collection_count == 0:
                 logger.info("🔄 Initializing knowledge base with training data...")
                 training_data = self._get_training_data()
-                self._add_training_data(training_data)
-                logger.info(f"✅ Added {len(training_data)} training examples")
+                
+                if not training_data:
+                    logger.error("❌ No training data available")
+                    return
+                    
+                success_count = self._add_training_data(training_data)
+                logger.info(f"✅ Added {success_count}/{len(training_data)} training examples")
+                
+                # Verify the data was added
+                final_count = self.collection.count()
+                logger.info(f"📊 Final collection count: {final_count}")
+                
             else:
                 logger.info(f"📚 Knowledge base already contains {collection_count} examples")
+                
         except Exception as e:
             logger.error(f"❌ Knowledge base initialization failed: {e}")
+            import traceback
+            logger.error(f"❌ Full traceback: {traceback.format_exc()}")
     
     def _get_training_data(self):
         """Get comprehensive training data for the RAG system"""
@@ -235,21 +307,42 @@ class RAGVannaAI:
     
     def _add_training_data(self, training_data):
         """Add training data to ChromaDB collection"""
+        success_count = 0
+        
+        if not self.embedding_model or not self.collection:
+            logger.error("❌ Missing embedding model or collection for training data")
+            return success_count
+        
         for i, example in enumerate(training_data):
-            # Create embedding for the question
-            embedding = self.embedding_model.encode(example["question"]).tolist()
-            
-            # Add to collection
-            self.collection.add(
-                ids=[f"training_{i}"],
-                embeddings=[embedding],
-                documents=[example["question"]],
-                metadatas=[{
-                    "sql": example["sql"],
-                    "explanation": example["explanation"],
-                    "type": "training_example"
-                }]
-            )
+            try:
+                # Validate example data
+                if not all(key in example for key in ["question", "sql", "explanation"]):
+                    logger.warning(f"⚠️ Skipping invalid training example {i}: missing required keys")
+                    continue
+                
+                # Create embedding for the question
+                embedding = self.embedding_model.encode(example["question"]).tolist()
+                
+                # Add to collection with unique ID
+                self.collection.add(
+                    ids=[f"training_{i}_{int(time.time())}"],
+                    embeddings=[embedding],
+                    documents=[example["question"]],
+                    metadatas=[{
+                        "sql": example["sql"],
+                        "explanation": example["explanation"],
+                        "type": "training_example",
+                        "added_at": datetime.now().isoformat()
+                    }]
+                )
+                success_count += 1
+                
+            except Exception as e:
+                logger.error(f"❌ Failed to add training example {i}: {e}")
+                continue
+        
+        logger.info(f"✅ Successfully added {success_count}/{len(training_data)} training examples")
+        return success_count
     
     def _find_similar_questions(self, question: str, top_k: int = 3):
         """Find similar questions from the knowledge base"""
