@@ -665,9 +665,35 @@ async def health_check():
         "rag_system": rag_status,
         "groq_api": "available" if GROQ_API_KEY else "unavailable",
         "debug": debug_info,
-        "version": "2.0.0",
+        "version": "2.0.1",
         "service": "Vanna AI RAG Service"
     }
+
+@app.get("/rag-status")
+async def rag_status():
+    """Detailed RAG system status and initialization attempt"""
+    try:
+        # Try to reinitialize if not active
+        if not rag_system.rag_enabled:
+            logger.info("🔄 Attempting RAG reinitialization...")
+            rag_system._initialize_rag_system()
+        
+        status = {
+            "rag_enabled": rag_system.rag_enabled,
+            "has_collection": rag_system.collection is not None,
+            "has_embedding_model": rag_system.embedding_model is not None,
+            "initialization_attempted": True
+        }
+        
+        if rag_system.collection:
+            try:
+                status["knowledge_base_count"] = rag_system.collection.count()
+            except Exception as e:
+                status["collection_error"] = str(e)
+        
+        return status
+    except Exception as e:
+        return {"error": str(e), "initialization_attempted": False}
 
 @app.post("/query", response_model=QueryResponse)
 async def query_data(request: QueryRequest):
