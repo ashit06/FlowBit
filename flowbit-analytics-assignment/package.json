@@ -8,11 +8,17 @@
   ],
   "scripts": {
     "build": "turbo run build",
+    "build:web": "cd apps/web && npm run build",
+    "build:api": "cd apps/api && npm run build", 
+    "start": "turbo run start",
+    "start:web": "cd apps/web && npm start",
+    "start:api": "cd apps/api && npm start",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "clean": "turbo run clean"
+    "clean": "turbo run clean",
+    "install:all": "npm install && cd apps/web && npm install && cd ../api && npm install"
   },
   "devDependencies": {
     "@turbo/gen": "^1.10.12",
