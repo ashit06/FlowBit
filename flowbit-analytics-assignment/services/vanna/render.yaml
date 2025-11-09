@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: vanna-ai-rag
+    env: python
+    region: oregon
+    plan: starter
+    rootDir: services/vanna
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        value: postgresql://flowbit_dsmj_user:OeBqXReq0cEqRJt4qjGisESU20LjrTNC@dpg-d47npjili9vc738s69lg-a.oregon-postgres.render.com/flowbit_dsmj
+      - key: GROQ_API_KEY
+        sync: false  # Set this manually in Render dashboard
+      - key: PORT
+        value: 10000
+      - key: PYTHON_VERSION
+        value: 3.9.18
