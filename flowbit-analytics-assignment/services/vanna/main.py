@@ -630,12 +630,41 @@ async def health_check():
     db_status = "connected" if engine else "disconnected"
     rag_status = "active" if (rag_system.rag_enabled and rag_system.collection and rag_system.embedding_model) else "inactive"
     
+    # Debug information
+    debug_info = {}
+    try:
+        import chromadb
+        debug_info["chromadb_available"] = True
+    except Exception as e:
+        debug_info["chromadb_available"] = False
+        debug_info["chromadb_error"] = str(e)
+        
+    try:
+        from sentence_transformers import SentenceTransformer
+        debug_info["sentence_transformers_available"] = True
+    except Exception as e:
+        debug_info["sentence_transformers_available"] = False
+        debug_info["sentence_transformers_error"] = str(e)
+    
+    debug_info["rag_enabled"] = rag_system.rag_enabled
+    debug_info["has_collection"] = rag_system.collection is not None
+    debug_info["has_embedding_model"] = rag_system.embedding_model is not None
+    
+    if rag_system.collection:
+        try:
+            debug_info["knowledge_base_count"] = rag_system.collection.count()
+        except Exception as e:
+            debug_info["knowledge_base_count"] = f"error: {e}"
+    else:
+        debug_info["knowledge_base_count"] = "no_collection"
+    
     return {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "database": db_status,
         "rag_system": rag_status,
         "groq_api": "available" if GROQ_API_KEY else "unavailable",
+        "debug": debug_info,
         "version": "2.0.0",
         "service": "Vanna AI RAG Service"
     }
