@@ -24,7 +24,7 @@ services:
     ports:
       - "3001:3001"
     environment:
-      - DATABASE_URL=postgresql://user:password@postgres:5432/flowbit_analytics?schema=public
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:password@postgres:5432/flowbit_analytics?schema=public}
       - VANNA_API_BASE_URL=http://vanna:8000
     depends_on:
       postgres:
@@ -52,12 +52,12 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+psycopg://user:password@postgres:5432/flowbit_analytics
-      - DB_HOST=postgres
-      - DB_NAME=flowbit_analytics
-      - DB_USER=user
-      - DB_PASSWORD=password
-      - DB_PORT=5432
+      - DATABASE_URL=${VANNA_DATABASE_URL:-postgresql+psycopg://user:password@postgres:5432/flowbit_analytics}
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_NAME=${DB_NAME:-flowbit_analytics}
+      - DB_USER=${DB_USER:-user}
+      - DB_PASSWORD=${DB_PASSWORD:-password}
+      - DB_PORT=${DB_PORT:-5432}
       - GROQ_API_KEY=${GROQ_API_KEY}
     depends_on:
       postgres:

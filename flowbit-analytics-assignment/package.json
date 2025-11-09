@@ -21,7 +21,6 @@
     "turbo": "^1.10.12",
     "typescript": "^5.0.0"
   },
-  "packageManager": "npm@10.2.4",
   "engines": {
     "node": ">=18"
   }

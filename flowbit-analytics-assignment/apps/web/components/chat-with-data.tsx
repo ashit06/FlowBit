@@ -1,13 +1,22 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, Database, Code } from 'lucide-react'
+import { Send, Database, Code, Brain, Clock, CheckCircle, AlertTriangle, Info } from 'lucide-react'
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
   sql?: string
   data?: any[]
+  confidence?: number
+  explanation?: string
+  similar_questions?: string[]
+  execution_time?: number
+  metadata?: {
+    rag_enabled?: boolean
+    rows_returned?: number
+    method?: string
+  }
 }
 
 export default function ChatWithData() {
@@ -35,9 +44,14 @@ export default function ChatWithData() {
       
       const assistantMessage: Message = {
         role: 'assistant',
-        content: result.answer || 'I found some results for your query.',
+        content: result.explanation || 'I found some results for your query.',
         sql: result.sql,
-        data: result.data
+        data: result.data,
+        confidence: result.confidence,
+        explanation: result.explanation,
+        similar_questions: result.similar_questions,
+        execution_time: result.execution_time,
+        metadata: result.metadata
       }
 
       setMessages(prev => [...prev, assistantMessage])
@@ -58,8 +72,16 @@ export default function ChatWithData() {
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">Chat with Data</h1>
-            <p className="text-sm text-gray-500 mt-1">Ask natural language questions about your invoice data</p>
+            <div className="flex items-center space-x-3">
+              <h1 className="text-xl font-semibold text-gray-900">Chat with Data</h1>
+              <div className="flex items-center space-x-2 px-3 py-1 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 rounded-full text-xs font-medium">
+                <Brain className="w-4 h-4" />
+                <span>RAG Enhanced</span>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 mt-1">
+              Ask natural language questions about your invoice data • Powered by AI with semantic understanding
+            </p>
           </div>
         </div>
       </div>
@@ -69,11 +91,40 @@ export default function ChatWithData() {
         <div className="bg-white rounded-lg border border-gray-200 flex-1 mb-4 flex flex-col">
           <div className="flex-1 overflow-auto p-6 space-y-4">
             {messages.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <Database className="w-12 h-12 text-gray-400 mb-4" />
-                <div className="text-gray-500 mb-2">Start a conversation with your data</div>
-                <div className="text-sm text-gray-400">
-                  Try asking: "What's the total spend this year?" or "Show me the top 5 vendors"
+              <div className="flex flex-col items-center justify-center h-full text-center max-w-2xl mx-auto">
+                <div className="flex items-center space-x-3 mb-4">
+                  <Database className="w-12 h-12 text-purple-500" />
+                  <Brain className="w-10 h-10 text-blue-500" />
+                </div>
+                <div className="text-gray-700 mb-2 font-medium">Start a conversation with your data</div>
+                <div className="text-sm text-gray-500 mb-6">
+                  Our RAG-enhanced AI understands your questions semantically and provides intelligent, context-aware responses.
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
+                  <button 
+                    onClick={() => setInput("What is the total revenue?")}
+                    className="p-3 text-left bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100 rounded-lg border border-purple-200 hover:border-purple-300 transition-colors"
+                  >
+                    <div className="font-medium text-sm text-purple-800">&ldquo;What is the total revenue?&rdquo;</div>
+                  </button>
+                  <button 
+                    onClick={() => setInput("Show me the top 5 customers")}
+                    className="p-3 text-left bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100 rounded-lg border border-purple-200 hover:border-purple-300 transition-colors"
+                  >
+                    <div className="font-medium text-sm text-purple-800">&ldquo;Show me the top 5 customers&rdquo;</div>
+                  </button>
+                  <button 
+                    onClick={() => setInput("Which invoices are overdue?")}
+                    className="p-3 text-left bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100 rounded-lg border border-purple-200 hover:border-purple-300 transition-colors"
+                  >
+                    <div className="font-medium text-sm text-purple-800">&ldquo;Which invoices are overdue?&rdquo;</div>
+                  </button>
+                  <button 
+                    onClick={() => setInput("What is the average invoice amount?")}
+                    className="p-3 text-left bg-gradient-to-r from-purple-50 to-blue-50 hover:from-purple-100 hover:to-blue-100 rounded-lg border border-purple-200 hover:border-purple-300 transition-colors"
+                  >
+                    <div className="font-medium text-sm text-purple-800">&ldquo;Average invoice amount?&rdquo;</div>
+                  </button>
                 </div>
               </div>
             ) : (
@@ -86,6 +137,45 @@ export default function ChatWithData() {
                         : 'bg-gray-100 text-gray-900'
                     }`}>
                       <div className="whitespace-pre-wrap">{message.content}</div>
+                      
+                      {/* RAG Information */}
+                      {message.role === 'assistant' && message.metadata?.rag_enabled && (
+                        <div className="mt-3 pt-3 border-t border-gray-300">
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="flex items-center space-x-4">
+                              <div className="flex items-center space-x-1">
+                                <Brain className="w-4 h-4 text-purple-600" />
+                                <span className="text-purple-600 font-medium">RAG Enhanced</span>
+                              </div>
+                              {message.confidence && (
+                                <div className="flex items-center space-x-1">
+                                  {message.confidence >= 0.8 ? (
+                                    <CheckCircle className="w-4 h-4 text-green-600" />
+                                  ) : message.confidence >= 0.6 ? (
+                                    <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                                  ) : (
+                                    <Info className="w-4 h-4 text-blue-600" />
+                                  )}
+                                  <span className={`font-medium ${
+                                    message.confidence >= 0.8 ? 'text-green-600' :
+                                    message.confidence >= 0.6 ? 'text-yellow-600' : 'text-blue-600'
+                                  }`}>
+                                    {Math.round(message.confidence * 100)}% confidence
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            {message.execution_time && (
+                              <div className="flex items-center space-x-1">
+                                <Clock className="w-4 h-4 text-gray-500" />
+                                <span className="text-gray-500 text-xs">
+                                  {message.execution_time.toFixed(2)}s
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     
                     {message.sql && (
@@ -135,6 +225,27 @@ export default function ChatWithData() {
                               Showing first 10 of {message.data.length} results
                             </div>
                           )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Similar Questions */}
+                    {message.similar_questions && message.similar_questions.length > 0 && (
+                      <div className="mt-3 p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+                        <div className="flex items-center mb-3">
+                          <Brain className="w-4 h-4 mr-2 text-purple-600" />
+                          <span className="font-medium text-purple-900">Similar Questions:</span>
+                        </div>
+                        <div className="space-y-2">
+                          {message.similar_questions.slice(0, 3).map((question, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setInput(question)}
+                              className="block w-full text-left p-2 text-sm bg-white/60 hover:bg-white/80 rounded border border-purple-100 hover:border-purple-300 transition-colors text-purple-800"
+                            >
+                              &ldquo;{question}&rdquo;
+                            </button>
+                          ))}
                         </div>
                       </div>
                     )}

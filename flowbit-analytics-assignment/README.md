@@ -54,21 +54,40 @@ flowbit-analytics-assignment/
 
 ### Prerequisites
 - Node.js 18+
-- Python 3.11+
+- Python 3.12+
 - PostgreSQL 15+
-- Docker & Docker Compose (for local development)
 
-### 1. Clone and Install Dependencies
+### ⚡ One-Command Setup
+
+```bash
+# 1. Set up environment (run once)
+./setup-environment.sh
+
+# 2. Start all services
+./start-services.sh
+
+# 3. Stop all services (when done)
+./stop-services.sh
+```
+
+That's it! Open http://localhost:3000 in your browser.
+
+### 📖 Detailed Guide
+
+For step-by-step instructions and troubleshooting, see:
+```bash
+cat QUICK_START_GUIDE.md
+```
+
+### Manual Setup (Alternative)
 
 ```bash
 # Clone the repository
 git clone <your-repo-url>
 cd flowbit-analytics-assignment
 
-# Install root dependencies
+# Install dependencies
 npm install
-
-# Install app-specific dependencies
 cd apps/web && npm install
 cd ../api && npm install
 cd ../../services/vanna && pip install -r requirements.txt

@@ -47,16 +47,52 @@ app.get('/health', async (req, res) => {
 // Stats endpoint - returns totals for overview cards
 app.get('/api/stats', async (req, res) => {
   try {
-    // Using static data that matches our sample data
+    const [
+      totalInvoices,
+      totalVendors,
+      totalCustomers,
+      revenueData,
+      pendingData,
+      averageData
+    ] = await Promise.all([
+      prisma.invoice.count(),
+      prisma.vendor.count(),
+      prisma.customer.count(),
+      prisma.invoice.aggregate({
+        _sum: { totalAmount: true }
+      }),
+      prisma.invoice.aggregate({
+        _sum: { totalAmount: true },
+        where: { status: { in: ['PENDING', 'OVERDUE'] } }
+      }),
+      prisma.invoice.aggregate({
+        _avg: { totalAmount: true }
+      })
+    ]);
+
+    const totalSpend = Number(revenueData._sum.totalAmount) || 0;
+    const pendingPayments = Number(pendingData._sum.totalAmount) || 0;
+    const averageInvoiceValue = Number(averageData._avg.totalAmount) || 0;
+
     res.json({
-      totalSpend: 12679.25,
-      totalInvoices: 64,
-      documentsUploaded: 17,
-      averageInvoiceValue: 2455.00
+      totalSpend,
+      totalInvoices,
+      documentsUploaded: totalInvoices, // Using invoice count as document count for now
+      averageInvoiceValue,
+      totalRevenue: totalSpend, // Keep this for backward compatibility
+      pendingPayments,
+      totalVendors,
+      totalCustomers,
+      percentageChange: {
+        invoices: 12.5, // Placeholder for now
+        revenue: 8.3,
+        payments: -5.2,
+        vendors: 0
+      }
     });
   } catch (error) {
     console.error('Stats error:', error);
-    res.status(500).json({ error: 'Failed to fetch stats' });
+    res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 });
 
@@ -143,22 +179,123 @@ app.get('/api/cash-outflow', async (req, res) => {
 });
 
 // Invoices endpoint
+// Invoices endpoint with full data from DB
 app.get('/api/invoices', async (req, res) => {
   try {
-    const invoices = [
-      { id: '1', vendor: 'Phunk GmbH', date: '19.08.2025', invoiceNumber: 'INV-2024-001', amount: 736.78, status: 'PAID' },
-      { id: '2', vendor: 'Phunk GmbH', date: '19.08.2025', invoiceNumber: 'INV-2024-002', amount: 736.78, status: 'PAID' },
-      { id: '3', vendor: 'Phunk GmbH', date: '18.08.2025', invoiceNumber: 'INV-2024-003', amount: 736.78, status: 'PENDING' },
-      { id: '4', vendor: 'Global Supply', date: '17.08.2025', invoiceNumber: 'INV-2024-004', amount: 1200.00, status: 'PAID' },
-      { id: '5', vendor: 'Tech Solutions', date: '16.08.2025', invoiceNumber: 'INV-2024-005', amount: 2450.00, status: 'OVERDUE' },
-      { id: '6', vendor: 'Office Ltd', date: '15.08.2025', invoiceNumber: 'INV-2024-006', amount: 350.00, status: 'PAID' },
-      { id: '7', vendor: 'Acme Corp', date: '14.08.2025', invoiceNumber: 'INV-2024-007', amount: 8679.25, status: 'PAID' }
-    ];
+    const invoices = await prisma.invoice.findMany({
+      include: {
+        vendor: {
+          select: { name: true }
+        },
+        customer: {
+          select: { name: true }
+        }
+      },
+      orderBy: {
+        issueDate: 'desc'
+      },
+      take: 50 // Limit for performance
+    });
 
-    res.json(invoices);
+    const formattedInvoices = invoices.map(invoice => ({
+      id: invoice.id,
+      vendor: invoice.vendor?.name || 'Unknown Vendor',
+      customer: invoice.customer?.name || 'Unknown Customer',
+      date: invoice.issueDate.toLocaleDateString('de-DE'),
+      invoiceNumber: invoice.invoiceNumber,
+      amount: Number(invoice.totalAmount),
+      status: invoice.status,
+      category: invoice.category,
+      dueDate: invoice.dueDate?.toLocaleDateString('de-DE'),
+      currency: invoice.currency
+    }));
+
+    res.json(formattedInvoices);
   } catch (error) {
     console.error('Invoices error:', error);
     res.status(500).json({ error: 'Failed to fetch invoices' });
+  }
+});
+
+// Analytics endpoints for dashboard charts
+app.get('/api/analytics/revenue-by-month', async (req, res) => {
+  try {
+    const monthlyRevenue = await prisma.$queryRaw`
+      SELECT 
+        DATE_TRUNC('month', "issueDate") as month,
+        SUM("totalAmount") as revenue,
+        COUNT(*) as invoice_count
+      FROM invoices 
+      WHERE "issueDate" >= NOW() - INTERVAL '12 months'
+      GROUP BY DATE_TRUNC('month', "issueDate")
+      ORDER BY month DESC
+      LIMIT 12
+    `;
+
+    // Convert BigInt values to numbers for JSON serialization
+    const formattedData = (monthlyRevenue as any[]).map(item => ({
+      month: item.month,
+      revenue: Number(item.revenue) || 0,
+      invoice_count: Number(item.invoice_count) || 0
+    }));
+
+    res.json(formattedData);
+  } catch (error) {
+    console.error('Revenue analytics error:', error);
+    res.status(500).json({ error: 'Failed to fetch revenue analytics' });
+  }
+});
+
+app.get('/api/analytics/vendors', async (req, res) => {
+  try {
+    const vendorAnalytics = await prisma.vendor.findMany({
+      include: {
+        invoices: {
+          select: {
+            totalAmount: true,
+            status: true
+          }
+        }
+      }
+    });
+
+    const vendorData = vendorAnalytics.map(vendor => ({
+      id: vendor.id,
+      name: vendor.name,
+      totalInvoices: vendor.invoices.length,
+      totalAmount: vendor.invoices.reduce((sum, inv) => sum + Number(inv.totalAmount), 0),
+      paidInvoices: vendor.invoices.filter(inv => inv.status === 'PAID').length
+    }));
+
+    res.json(vendorData);
+  } catch (error) {
+    console.error('Vendor analytics error:', error);
+    res.status(500).json({ error: 'Failed to fetch vendor analytics' });
+  }
+});
+
+app.get('/api/analytics/categories', async (req, res) => {
+  try {
+    const categoryData = await prisma.invoice.groupBy({
+      by: ['category'],
+      _sum: {
+        totalAmount: true
+      },
+      _count: {
+        id: true
+      }
+    });
+
+    const formattedData = categoryData.map(cat => ({
+      category: cat.category || 'Uncategorized',
+      totalAmount: Number(cat._sum.totalAmount) || 0,
+      invoiceCount: cat._count.id
+    }));
+
+    res.json(formattedData);
+  } catch (error) {
+    console.error('Category analytics error:', error);
+    res.status(500).json({ error: 'Failed to fetch category analytics' });
   }
 });
 
@@ -167,16 +304,27 @@ app.post('/api/chat-with-data', async (req, res) => {
   try {
     const { query } = req.body;
     
-    // Placeholder implementation
-    // This will forward to Vanna AI service
-    res.json({
-      query,
-      sql: 'SELECT * FROM invoices LIMIT 10;',
-      results: [],
-      explanation: 'This is a placeholder response'
+    // Forward to Vanna AI service
+    const vannaResponse = await fetch(`${process.env.VANNA_API_BASE_URL}/query`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: query })
     });
+    
+    if (vannaResponse.ok) {
+      const result = await vannaResponse.json();
+      res.json(result);
+    } else {
+      throw new Error('Vanna AI service unavailable');
+    }
   } catch (error) {
-    res.status(500).json({ error: 'Failed to process chat query' });
+    console.error('Chat error:', error);
+    res.status(500).json({ 
+      error: 'Failed to process chat query',
+      query: req.body.query || '',
+      results: [],
+      explanation: 'The AI service is currently unavailable. Please try again later.'
+    });
   }
 });
 
