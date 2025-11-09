@@ -437,6 +437,8 @@ class RAGVannaAI:
         
         Generate a PostgreSQL query for: {question}
         
+        CRITICAL: Use double quotes around camelCase column names (e.g., "totalAmount", "dueDate", "customerId").
+        
         Return only the SQL query, no explanation.
         """
         
@@ -492,6 +494,8 @@ class RAGVannaAI:
         {schema_info}
         
         Generate a PostgreSQL query for: {question}
+        
+        CRITICAL: Use double quotes around camelCase column names (e.g., "totalAmount", "dueDate", "customerId").
         
         Return only the SQL query, no explanation.
         """
